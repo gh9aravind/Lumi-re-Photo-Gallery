@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lumière — Private Client Gallery</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Playfair Display (display) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <script>
+    // ─── Tailwind custom config ────────────────────────────────────────────────
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian:  '#0b0b0d',
+            surface:   '#131317',
+            panel:     '#1c1c22',
+            border:    '#2a2a33',
+            muted:     '#5a5a6e',
+            accent:    '#c9a96e',   /* warm gold */
+            accentSoft:'#e8d5b0',
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', 'serif'],
+            body:    ['"DM Sans"', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ─── Base resets & custom properties ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:     #c9a96e;
+      --accent-rgb: 201, 169, 110;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: #0b0b0d;
+      color: #e2e2ea;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      overflow-x: hidden;
+    }
+
+    /* ─── Scrollbar ─────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0b0d; }
+    ::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    /* ─── Grain overlay (full page) ─────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 128px;
+    }
+
+    /* ─── Navbar ─────────────────────────────────────────────────────────────── */
+    #navbar {
+      transition: background 0.4s ease, backdrop-filter 0.4s ease, box-shadow 0.4s ease;
+    }
+    #navbar.scrolled {
+      background: rgba(11,11,13,0.88) !important;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 1px 0 rgba(var(--accent-rgb),.12);
+    }
+
+    /* ─── Hero ───────────────────────────────────────────────────────────────── */
+    #hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Layered radial glow behind hero text */
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 55% at 50% 40%, rgba(var(--accent-rgb),.10) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 30% at 20% 70%, rgba(100,80,200,.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-line {
+      overflow: hidden;
+    }
+    .hero-line span {
+      display: block;
+      transform: translateY(110%);
+      opacity: 0;
+      animation: slideUp 0.9s cubic-bezier(.16,1,.3,1) forwards;
+    }
+    .hero-line:nth-child(1) span { animation-delay: .1s; }
+    .hero-line:nth-child(2) span { animation-delay: .25s; }
+    .hero-line:nth-child(3) span { animation-delay: .4s; }
+    .hero-sub {
+      opacity: 0;
+      transform: translateY(16px);
+      animation: fadeUp 0.8s ease forwards;
+      animation-delay: .65s;
+    }
+    .hero-cta {
+      opacity: 0;
+      animation: fadeUp 0.7s ease forwards;
+      animation-delay: .85s;
+    }
+
+    @keyframes slideUp {
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Floating bokeh circles */
+    .bokeh {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      pointer-events: none;
+      animation: drift linear infinite;
+    }
+    @keyframes drift {
+      0%   { transform: translateY(0)   rotate(0deg); opacity: .4; }
+      50%  { transform: translateY(-40px) rotate(180deg); opacity: .7; }
+      100% { transform: translateY(0)   rotate(360deg); opacity: .4; }
+    }
+
+    /* ─── Section divider ───────────────────────────────────────────────────── */
+    .gold-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: .3;
+      margin: 0 auto;
+      max-width: 480px;
+    }
+
+    /* ─── Filter tabs ────────────────────────────────────────────────────────── */
+    .tab-btn {
+      position: relative;
+      padding: 0.45rem 1.4rem;
+      border-radius: 9999px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .82rem;
+      font-weight: 500;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #5a5a6e;
+      border: 1px solid #2a2a33;
+      background: transparent;
+      cursor: pointer;
+      transition: color .2s, border-color .2s, background .2s;
+    }
+    .tab-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .tab-btn.active {
+      color: #0b0b0d;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* ─── Gallery grid ───────────────────────────────────────────────────────── */
+    #gallery-grid {
+      columns: 3;
+      column-gap: 12px;
+    }
+    @media (max-width: 900px) { #gallery-grid { columns: 2; } }
+    @media (max-width: 560px) { #gallery-grid { columns: 1; } }
+
+    .photo-card {
+      break-inside: avoid;
+      margin-bottom: 12px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: border-color .3s ease, transform .35s cubic-bezier(.16,1,.3,1);
+    }
+    .photo-card:hover {
+      border-color: rgba(var(--accent-rgb),.35);
+      transform: translateY(-3px);
+    }
+
+    /* shimmer skeleton while image loads */
+    .photo-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, #1c1c22 33%, #252530 50%, #1c1c22 67%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      z-index: 0;
+      border-radius: 6px;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .photo-card img {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      display: block;
+      border-radius: 6px;
+      transition: transform .5s cubic-bezier(.16,1,.3,1), filter .4s ease;
+      filter: brightness(.92);
+    }
+    .photo-card:hover img {
+      transform: scale(1.04);
+      filter: brightness(1);
+    }
+
+    /* Overlay on hover */
+    .photo-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background: linear-gradient(to top, rgba(11,11,13,.82) 0%, transparent 55%);
+      opacity: 0;
+      transition: opacity .35s ease;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 14px;
+    }
+    .photo-card:hover .photo-overlay { opacity: 1; }
+
+    /* Heart button */
+    .heart-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 3;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(11,11,13,.55);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+      opacity: 0;
+      transition: opacity .3s ease, background .2s, transform .2s;
+    }
+    .photo-card:hover .heart-btn { opacity: 1; }
+    .heart-btn:hover { background: rgba(var(--accent-rgb),.25); transform: scale(1.12); }
+    .heart-btn.active svg { fill: #e85d75; stroke: #e85d75; }
+    .heart-btn.active { opacity: 1; background: rgba(232,93,117,.15); border-color: rgba(232,93,117,.35); }
+
+    /* Download button (inside overlay) */
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .72rem;
+      font-weight: 500;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(var(--accent-rgb),.12);
+      border: 1px solid rgba(var(--accent-rgb),.3);
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+      text-decoration: none;
+    }
+    .dl-btn:hover { background: var(--accent); color: #0b0b0d; }
+
+    /* category badge */
+    .cat-badge {
+      font-size: .65rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #5a5a6e;
+      margin-bottom: 5px;
+    }
+
+    /* Photo card entrance animation */
+    .photo-card {
+      opacity: 0;
+      transform: translateY(22px) scale(.97);
+      animation: cardIn .55s cubic-bezier(.16,1,.3,1) forwards;
+    }
+    @keyframes cardIn {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ─── Lightbox ──────────────────────────────────────────────────────────── */
+    #lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(8,8,10,.97);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    #lightbox.open {
+      display: flex;
+      animation: lbIn .3s ease;
+    }
+    @keyframes lbIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    #lb-img-wrap {
+      position: relative;
+      max-width: min(90vw, 1100px);
+      max-height: 80vh;
+    }
+    #lb-img {
+      max-width: 100%;
+      max-height: 78vh;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 40px 100px rgba(0,0,0,.8);
+      display: block;
+      transition: opacity .25s ease;
+    }
+
+    .lb-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(var(--accent-rgb),.12);
+      border: 1px solid rgba(var(--accent-rgb),.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+      color: var(--accent);
+    }
+    .lb-nav:hover { background: var(--accent); color: #0b0b0d; }
+    #lb-prev { left: -58px; }
+    #lb-next { right: -58px; }
+    @media (max-width: 700px) {
+      #lb-prev { left: -46px; }
+      #lb-next { right: -46px; }
+    }
+
+    #lb-close {
+      position: absolute;
+      top: 18px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background .2s;
+      color: #e2e2ea;
+    }
+    #lb-close:hover { background: rgba(255,255,255,.14); }
+
+    #lb-info {
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    #lb-counter {
+      font-size: .78rem;
+      color: #5a5a6e;
+      letter-spacing: .06em;
+    }
+    #lb-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: #e2e2ea;
+    }
+
+    /* Lightbox heart */
+    #lb-heart {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background .2s;
+      color: #e2e2ea;
+    }
+    #lb-heart.active svg { fill: #e85d75; stroke: #e85d75; }
+    #lb-heart.active { background: rgba(232,93,117,.15); border-color: rgba(232,93,117,.35); }
+
+    /* ─── Favorites drawer ──────────────────────────────────────────────────── */
+    #fav-bar {
+      position: fixed;
+      bottom: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 500;
+      transition: bottom .4s cubic-bezier(.16,1,.3,1);
+      white-space: nowrap;
+    }
+    #fav-bar.visible { bottom: 24px; }
+    #fav-bar-inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      background: #1c1c22;
+      border: 1px solid rgba(var(--accent-rgb),.25);
+      border-radius: 50px;
+      padding: 10px 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    }
+
+    /* ─── Toast ──────────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--accent);
+      color: #0b0b0d;
+      font-size: .8rem;
+      font-weight: 500;
+      padding: 9px 20px;
+      border-radius: 50px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .25s ease, transform .25s ease;
+      z-index: 2000;
+      letter-spacing: .04em;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ─── Favorites count badge ──────────────────────────────────────────────── */
+    #fav-count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 50px;
+      background: var(--accent);
+      color: #0b0b0d;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: 0 6px;
+    }
+
+    /* ─── Section heading underline ──────────────────────────────────────────── */
+    .section-heading {
+      position: relative;
+      display: inline-block;
+    }
+    .section-heading::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      width: 40%;
+      height: 1.5px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* ─── Empty state ────────────────────────────────────────────────────────── */
+    #empty-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+      color: #5a5a6e;
+    }
+
+    /* ─── Footer ─────────────────────────────────────────────────────────────── */
+    footer .gold-line {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb),.3), transparent);
+    }
+
+    /* ─── Utility ────────────────────────────────────────────────────────────── */
+    .text-accent { color: var(--accent); }
+    .uppercase-track { text-transform: uppercase; letter-spacing: .1em; }
+  </style>
+</head>
+<body class="bg-obsidian font-body text-gray-200">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  NAVBAR                                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-5">
+    <!-- Logo -->
+    <a href="#" class="font-display text-xl tracking-widest text-accent">
+      Lumière
+      <span class="block text-[9px] uppercase tracking-[.25em] text-muted -mt-1 font-body">Private Gallery</span>
+    </a>
+
+    <!-- Nav links (desktop) -->
+    <div class="hidden md:flex items-center gap-8 text-[.75rem] uppercase tracking-widest text-muted">
+      <a href="#gallery" class="hover:text-accent transition-colors">Gallery</a>
+      <a href="#favorites-section" class="hover:text-accent transition-colors">Favorites</a>
+    </div>
+
+    <!-- Favorites counter pill -->
+    <button id="nav-fav-btn" onclick="scrollToFavorites()"
+      class="flex items-center gap-2 text-[.72rem] uppercase tracking-widest text-muted border border-border rounded-full px-4 py-1.5 hover:border-accent hover:text-accent transition-all">
+      ♥ <span id="nav-fav-count">0</span> saved
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  HERO                                                                  -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="hero" class="px-6 text-center">
+    <!-- Floating bokeh -->
+    <div class="bokeh w-72 h-72 bg-accent opacity-[.06]" style="top:15%;left:8%;animation-duration:14s"></div>
+    <div class="bokeh w-48 h-48 bg-purple-400 opacity-[.04]" style="top:60%;left:75%;animation-duration:18s;animation-delay:-5s"></div>
+    <div class="bokeh w-56 h-56 bg-accent opacity-[.05]" style="top:75%;left:30%;animation-duration:22s;animation-delay:-9s"></div>
+
+    <div class="relative z-10 max-w-3xl mx-auto">
+      <!-- Eyebrow -->
+      <p class="hero-sub uppercase-track text-[.7rem] text-accent mb-8">
+        Welcome to your private gallery
+      </p>
+
+      <!-- Main heading — each line animates in -->
+      <h1 class="font-display font-normal leading-[1.08]">
+        <div class="hero-line">
+          <span class="text-5xl md:text-7xl text-gray-100">Your Memories,</span>
+        </div>
+        <div class="hero-line">
+          <span class="text-5xl md:text-7xl italic text-accent">Captured.</span>
+        </div>
+      </h1>
+
+      <p class="hero-sub text-muted text-base mt-7 max-w-lg mx-auto leading-relaxed">
+        Browse, favourite, and download your photos — all in one beautiful, private space just for you.
+      </p>
+
+      <div class="hero-cta mt-10 flex flex-wrap gap-4 justify-center">
+        <a href="#gallery"
+          class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-accent text-obsidian text-sm font-medium tracking-wide hover:bg-accentSoft transition-colors">
+          Browse Gallery
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        </a>
+        <button onclick="downloadFavorites()"
+          class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full border border-border text-muted text-sm tracking-wide hover:border-accent hover:text-accent transition-all">
+          ♥ Download Favorites
+        </button>
+      </div>
+    </div>
+
+    <!-- Scroll cue -->
+    <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-30 animate-bounce">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  GALLERY SECTION                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="gallery" class="px-4 md:px-10 pb-24 pt-16">
+
+    <!-- Section label -->
+    <div class="text-center mb-12">
+      <div class="gold-divider mb-8"></div>
+      <h2 class="font-display text-3xl md:text-4xl text-gray-100 section-heading">The Collection</h2>
+      <p class="text-muted text-sm mt-5">Click any photo to view full-screen · Heart to favourite · Download to save</p>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="flex flex-wrap justify-center gap-2 mb-10" id="tabs-container" role="tablist" aria-label="Photo categories">
+      <!-- Tabs injected by JS -->
+    </div>
+
+    <!-- Search bar -->
+    <div class="flex justify-center mb-8">
+      <div class="relative w-full max-w-xs">
+        <input id="search-input" type="text" placeholder="Search photos…"
+          class="w-full bg-panel border border-border rounded-full px-5 py-2.5 text-sm text-gray-200 placeholder-muted focus:outline-none focus:border-accent transition-colors pr-10"/>
+        <svg class="absolute right-4 top-1/2 -translate-y-1/2 text-muted" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      </div>
+    </div>
+
+    <!-- Photo grid -->
+    <div id="gallery-grid">
+      <!-- Cards injected by JS -->
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="flex flex-col items-center justify-center py-24 text-muted gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" class="opacity-30"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <p class="text-sm">No photos match this filter.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  FAVORITES SECTION                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="favorites-section" class="px-4 md:px-10 pb-32">
+    <div class="gold-divider mb-8"></div>
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <h2 class="font-display text-2xl md:text-3xl text-gray-100">Your Favourites
+        <span id="fav-section-count" class="text-base text-muted font-body ml-2">(0 photos)</span>
+      </h2>
+      <button onclick="downloadFavorites()"
+        class="dl-btn text-sm py-2.5 px-5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Download All Favourites
+      </button>
+    </div>
+    <div id="fav-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <!-- Favourite thumbnails injected by JS -->
+    </div>
+    <div id="fav-empty" class="py-16 text-center text-muted text-sm">
+      Heart photos above to add them here.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  FOOTER                                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <footer class="border-t border-border px-6 py-10 text-center">
+    <div class="gold-line mb-8"></div>
+    <p class="font-display text-xl text-accent italic mb-1">Lumière</p>
+    <p class="text-muted text-xs tracking-widest uppercase">Private Client Gallery · All rights reserved</p>
+    <p class="text-[#2a2a33] text-xs mt-4">Made with ♥ for your memories</p>
+  </footer>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  LIGHTBOX                                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="Photo lightbox">
+    <!-- Close -->
+    <button id="lb-close" aria-label="Close lightbox" onclick="closeLightbox()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+
+    <!-- Image + nav -->
+    <div id="lb-img-wrap">
+      <img id="lb-img" src="" alt="Full size photo"/>
+      <button class="lb-nav" id="lb-prev" aria-label="Previous photo" onclick="navigateLb(-1)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="lb-nav" id="lb-next" aria-label="Next photo" onclick="navigateLb(1)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+
+    <!-- Info bar -->
+    <div id="lb-info">
+      <span id="lb-title" class="font-display text-gray-300"></span>
+      <span id="lb-counter" class="text-muted"></span>
+      <div class="flex items-center gap-3 ml-auto">
+        <!-- Heart in lightbox -->
+        <button id="lb-heart" aria-label="Toggle favourite" onclick="toggleFavFromLb()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        </button>
+        <!-- Download in lightbox -->
+        <a id="lb-dl" download class="dl-btn" style="font-size:.7rem;padding:6px 12px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  FLOATING FAVORITES BAR                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="fav-bar">
+    <div id="fav-bar-inner">
+      <span class="text-muted text-xs uppercase tracking-widest">Favourites</span>
+      <span id="fav-count-badge" class="fav-count-badge">0</span>
+      <button onclick="downloadFavorites()"
+        class="dl-btn" style="border-radius:50px;font-size:.7rem;padding:5px 14px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Download All
+      </button>
+      <button onclick="clearFavorites()"
+        class="text-muted text-[.68rem] uppercase tracking-widest hover:text-red-400 transition-colors">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!--  JAVASCRIPT                                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <script>
+    // =========================================================================
+    // 📸 PHOTO DATA
+    // ─────────────────────────────────────────────────────────────────────────
+    // HOW TO ADD YOUR OWN PHOTOS:
+    //
+    //   1. Upload your photos to the same folder as index.html, or a subfolder
+    //      like /photos/
+    //
+    //   2. Replace each "src" value below with the path to your photo, e.g.:
+    //        src: 'photos/IMG_001.jpg'
+    //
+    //   3. For "thumb", use the same path (or a smaller version for faster load)
+    //
+    //   4. Update "title", "category", and "tags" to match your photo
+    //
+    //   5. "download" should be the high-res version path (can be the same as src)
+    //
+    //   CATEGORY OPTIONS (add more in the CATEGORIES array below):
+    //     'event'     → group gatherings, parties
+    //     'portrait'  → individual/couple portraits
+    //     'nature'    → landscapes, outdoors
+    //     'lifestyle' → candid / lifestyle shots
+    // =========================================================================
+    const PHOTOS = [
+      // ── Events ──────────────────────────────────────────────────────────
+      {
+        id: 1,
+        title: 'Golden Hour Gathering',
+        category: 'event',
+        tags: ['outdoor', 'golden hour'],
+        src:      'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=2400&q=95',
+      },
+      {
+        id: 2,
+        title: 'Candlelit Celebration',
+        category: 'event',
+        tags: ['indoor', 'celebration'],
+        src:      'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=2400&q=95',
+      },
+      {
+        id: 3,
+        title: 'The Toast',
+        category: 'event',
+        tags: ['celebration', 'people'],
+        src:      'https://images.unsplash.com/photo-1529543544282-ea669407fca3?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1529543544282-ea669407fca3?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1529543544282-ea669407fca3?w=2400&q=95',
+      },
+      {
+        id: 4,
+        title: 'Dance Floor',
+        category: 'event',
+        tags: ['dance', 'indoor'],
+        src:      'https://images.unsplash.com/photo-1504609813442-a8924e83f76e?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1504609813442-a8924e83f76e?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1504609813442-a8924e83f76e?w=2400&q=95',
+      },
+      // ── Portraits ───────────────────────────────────────────────────────
+      {
+        id: 5,
+        title: 'Soft Morning Light',
+        category: 'portrait',
+        tags: ['natural light', 'morning'],
+        src:      'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=2400&q=95',
+      },
+      {
+        id: 6,
+        title: 'Studio Portrait',
+        category: 'portrait',
+        tags: ['studio', 'dramatic'],
+        src:      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=2400&q=95',
+      },
+      {
+        id: 7,
+        title: 'Garden Session',
+        category: 'portrait',
+        tags: ['outdoor', 'garden'],
+        src:      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=2400&q=95',
+      },
+      {
+        id: 8,
+        title: 'Couple — Dusk',
+        category: 'portrait',
+        tags: ['couple', 'golden hour'],
+        src:      'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=2400&q=95',
+      },
+      // ── Nature ──────────────────────────────────────────────────────────
+      {
+        id: 9,
+        title: 'Misty Mountains',
+        category: 'nature',
+        tags: ['landscape', 'mountains'],
+        src:      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=2400&q=95',
+      },
+      {
+        id: 10,
+        title: 'Coastal Calm',
+        category: 'nature',
+        tags: ['ocean', 'seascape'],
+        src:      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=2400&q=95',
+      },
+      {
+        id: 11,
+        title: 'Forest Path',
+        category: 'nature',
+        tags: ['forest', 'green'],
+        src:      'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1448375240586-882707db888b?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=2400&q=95',
+      },
+      // ── Lifestyle ────────────────────────────────────────────────────────
+      {
+        id: 12,
+        title: 'Morning Ritual',
+        category: 'lifestyle',
+        tags: ['candid', 'morning'],
+        src:      'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=2400&q=95',
+      },
+      {
+        id: 13,
+        title: 'City Walk',
+        category: 'lifestyle',
+        tags: ['street', 'urban'],
+        src:      'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=2400&q=95',
+      },
+      {
+        id: 14,
+        title: 'Reading Corner',
+        category: 'lifestyle',
+        tags: ['indoor', 'cosy'],
+        src:      'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1200&q=85',
+        thumb:    'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=75',
+        download: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=2400&q=95',
+      },
+    ];
+
+    // =========================================================================
+    // 🗂️ CATEGORIES
+    // ─────────────────────────────────────────────────────────────────────────
+    // Add or rename categories here.
+    // 'all' is always the first tab; the rest must match the "category" field
+    // in PHOTOS above.
+    // =========================================================================
+    const CATEGORIES = [
+      { id: 'all',       label: 'All' },
+      { id: 'event',     label: 'Events' },
+      { id: 'portrait',  label: 'Portraits' },
+      { id: 'nature',    label: 'Nature' },
+      { id: 'lifestyle', label: 'Lifestyle' },
+      { id: 'favourite', label: '♥ Favourites' },
+    ];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STATE
+    // ─────────────────────────────────────────────────────────────────────────
+    let activeCategory  = 'all';
+    let searchQuery     = '';
+    let lightboxIndex   = 0;
+    let lightboxPhotos  = [];
+
+    // Persist favourites in localStorage
+    const STORAGE_KEY   = 'lumiere_favourites';
+    let favourites = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+
+    function saveFavourites() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...favourites]));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INIT
+    // ─────────────────────────────────────────────────────────────────────────
+    function init() {
+      buildTabs();
+      renderGallery();
+      renderFavouritesSection();
+      updateFavCount();
+
+      // Search
+      document.getElementById('search-input').addEventListener('input', e => {
+        searchQuery = e.target.value.toLowerCase().trim();
+        renderGallery();
+      });
+
+      // Navbar scroll class
+      window.addEventListener('scroll', () => {
+        document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
+      });
+
+      // Keyboard navigation in lightbox
+      document.addEventListener('keydown', e => {
+        if (!lightboxOpen()) return;
+        if (e.key === 'Escape')     closeLightbox();
+        if (e.key === 'ArrowRight') navigateLb(1);
+        if (e.key === 'ArrowLeft')  navigateLb(-1);
+        if (e.key === 'f')          toggleFavFromLb();
+      });
+
+      // Lightbox backdrop click
+      document.getElementById('lightbox').addEventListener('click', e => {
+        if (e.target === document.getElementById('lightbox')) closeLightbox();
+      });
+
+      // Intersection Observer for lazy load
+      window._imgObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            if (img.dataset.src) {
+              img.src = img.dataset.src;
+              img.removeAttribute('data-src');
+              window._imgObserver.unobserve(img);
+            }
+          }
+        });
+      }, { rootMargin: '200px' });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TABS
+    // ─────────────────────────────────────────────────────────────────────────
+    function buildTabs() {
+      const container = document.getElementById('tabs-container');
+      container.innerHTML = '';
+      CATEGORIES.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'tab-btn' + (cat.id === activeCategory ? ' active' : '');
+        btn.textContent = cat.label;
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', cat.id === activeCategory);
+        btn.onclick = () => {
+          activeCategory = cat.id;
+          buildTabs();
+          renderGallery();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FILTER PHOTOS
+    // ─────────────────────────────────────────────────────────────────────────
+    function getFilteredPhotos() {
+      return PHOTOS.filter(p => {
+        const matchCat =
+          activeCategory === 'all'       ? true :
+          activeCategory === 'favourite' ? favourites.has(p.id) :
+          p.category === activeCategory;
+
+        const matchSearch =
+          !searchQuery ||
+          p.title.toLowerCase().includes(searchQuery) ||
+          p.tags.some(t => t.toLowerCase().includes(searchQuery)) ||
+          p.category.toLowerCase().includes(searchQuery);
+
+        return matchCat && matchSearch;
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RENDER GALLERY GRID
+    // ─────────────────────────────────────────────────────────────────────────
+    function renderGallery() {
+      const grid       = document.getElementById('gallery-grid');
+      const emptyState = document.getElementById('empty-state');
+      const filtered   = getFilteredPhotos();
+
+      // Update lightbox pool
+      lightboxPhotos = filtered;
+
+      grid.innerHTML = '';
+      if (filtered.length === 0) {
+        emptyState.style.display = 'flex';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      filtered.forEach((photo, idx) => {
+        const card = createCard(photo, idx);
+        grid.appendChild(card);
+
+        // observe lazy image
+        const img = card.querySelector('img[data-src]');
+        if (img) window._imgObserver.observe(img);
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CREATE PHOTO CARD
+    // ─────────────────────────────────────────────────────────────────────────
+    function createCard(photo, idx) {
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      card.style.animationDelay = `${idx * 0.04}s`;
+
+      const isFav = favourites.has(photo.id);
+
+      card.innerHTML = `
+        <!-- Lazy-load image; data-src swapped in by IntersectionObserver -->
+        <img
+          data-src="${photo.thumb}"
+          src=""
+          alt="${photo.title}"
+          loading="lazy"
+          style="min-height:200px;"
+        />
+
+        <!-- Hover overlay with title + download -->
+        <div class="photo-overlay" onclick="openLightbox(${idx})">
+          <div class="cat-badge">${photo.category}</div>
+          <div class="flex items-center justify-between">
+            <span style="font-family:'Playfair Display',serif;font-size:.92rem;color:#e2e2ea;">${photo.title}</span>
+            <a href="${photo.download}" download="${photo.title}.jpg"
+               onclick="event.stopPropagation();" class="dl-btn" title="Download">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Heart button (top-right) -->
+        <button class="heart-btn ${isFav ? 'active' : ''}"
+          data-id="${photo.id}"
+          aria-label="${isFav ? 'Remove from favourites' : 'Add to favourites'}"
+          onclick="event.stopPropagation(); toggleFav(${photo.id})">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="${isFav ? '#e85d75' : 'none'}" stroke="${isFav ? '#e85d75' : 'currentColor'}" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+          </svg>
+        </button>
+
+        <!-- Click entire card (non-overlay) to open lightbox -->
+        <div style="position:absolute;inset:0;z-index:0;" onclick="openLightbox(${idx})"></div>
+      `;
+
+      return card;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TOGGLE FAVOURITE
+    // ─────────────────────────────────────────────────────────────────────────
+    function toggleFav(id) {
+      if (favourites.has(id)) {
+        favourites.delete(id);
+        showToast('Removed from favourites');
+      } else {
+        favourites.add(id);
+        showToast('Added to favourites ♥');
+      }
+      saveFavourites();
+      updateFavCount();
+
+      // Re-render cards (to update heart state) + re-render fav section
+      renderGallery();
+      renderFavouritesSection();
+
+      // Update lightbox heart if open
+      if (lightboxOpen()) updateLightboxHeart();
+    }
+
+    function toggleFavFromLb() {
+      const photo = lightboxPhotos[lightboxIndex];
+      if (photo) toggleFav(photo.id);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FAVOURITES COUNT
+    // ─────────────────────────────────────────────────────────────────────────
+    function updateFavCount() {
+      const count = favourites.size;
+      document.getElementById('nav-fav-count').textContent     = count;
+      document.getElementById('fav-count-badge').textContent   = count;
+      document.getElementById('fav-section-count').textContent = `(${count} photo${count !== 1 ? 's' : ''})`;
+
+      // Show/hide floating bar
+      document.getElementById('fav-bar').classList.toggle('visible', count > 0);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FAVOURITES SECTION RENDER
+    // ─────────────────────────────────────────────────────────────────────────
+    function renderFavouritesSection() {
+      const grid  = document.getElementById('fav-grid');
+      const empty = document.getElementById('fav-empty');
+      const favPhotos = PHOTOS.filter(p => favourites.has(p.id));
+
+      grid.innerHTML = '';
+      empty.style.display = favPhotos.length === 0 ? 'block' : 'none';
+
+      favPhotos.forEach(photo => {
+        const div = document.createElement('div');
+        div.className = 'relative overflow-hidden rounded group cursor-pointer';
+        div.style.aspectRatio = '1';
+        div.innerHTML = `
+          <img src="${photo.thumb}" alt="${photo.title}"
+            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"/>
+          <div class="absolute inset-0 bg-obsidian/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2.5">
+            <span style="font-size:.67rem;color:#e2e2ea;font-family:'Playfair Display',serif;">${photo.title}</span>
+            <a href="${photo.download}" download="${photo.title}.jpg" class="dl-btn" style="padding:4px 8px;font-size:.62rem;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </a>
+          </div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CLEAR FAVOURITES
+    // ─────────────────────────────────────────────────────────────────────────
+    function clearFavorites() {
+      if (!confirm('Clear all favourites?')) return;
+      favourites.clear();
+      saveFavourites();
+      updateFavCount();
+      renderGallery();
+      renderFavouritesSection();
+      showToast('Favourites cleared');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DOWNLOAD ALL FAVOURITES
+    // ─────────────────────────────────────────────────────────────────────────
+    function downloadFavorites() {
+      const favPhotos = PHOTOS.filter(p => favourites.has(p.id));
+      if (favPhotos.length === 0) {
+        showToast('Heart some photos first!');
+        return;
+      }
+
+      // Trigger download for each favourite (staggered to avoid popup blockers)
+      favPhotos.forEach((photo, i) => {
+        setTimeout(() => {
+          const a = document.createElement('a');
+          a.href = photo.download;
+          a.download = `${photo.title}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, i * 300);
+      });
+
+      showToast(`Downloading ${favPhotos.length} photo${favPhotos.length !== 1 ? 's' : ''}…`);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SCROLL TO FAVOURITES
+    // ─────────────────────────────────────────────────────────────────────────
+    function scrollToFavorites() {
+      document.getElementById('favorites-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIGHTBOX
+    // ─────────────────────────────────────────────────────────────────────────
+    function openLightbox(idx) {
+      lightboxIndex = idx;
+      updateLightbox();
+      const lb = document.getElementById('lightbox');
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function lightboxOpen() {
+      return document.getElementById('lightbox').classList.contains('open');
+    }
+
+    function navigateLb(dir) {
+      lightboxIndex = (lightboxIndex + dir + lightboxPhotos.length) % lightboxPhotos.length;
+      updateLightbox();
+    }
+
+    function updateLightbox() {
+      const photo   = lightboxPhotos[lightboxIndex];
+      const img     = document.getElementById('lb-img');
+      const dl      = document.getElementById('lb-dl');
+      const title   = document.getElementById('lb-title');
+      const counter = document.getElementById('lb-counter');
+
+      // Fade transition
+      img.style.opacity = '0';
+      setTimeout(() => {
+        img.src = photo.src;
+        img.alt = photo.title;
+        img.style.opacity = '1';
+      }, 150);
+
+      dl.href     = photo.download;
+      dl.download = `${photo.title}.jpg`;
+      title.textContent   = photo.title;
+      counter.textContent = `${lightboxIndex + 1} / ${lightboxPhotos.length}`;
+
+      updateLightboxHeart();
+    }
+
+    function updateLightboxHeart() {
+      const photo    = lightboxPhotos[lightboxIndex];
+      const btn      = document.getElementById('lb-heart');
+      const isFav    = photo && favourites.has(photo.id);
+      btn.classList.toggle('active', isFav);
+      btn.setAttribute('aria-label', isFav ? 'Remove from favourites' : 'Add to favourites');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TOAST NOTIFICATION
+    // ─────────────────────────────────────────────────────────────────────────
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TOUCH SWIPE for lightbox
+    // ─────────────────────────────────────────────────────────────────────────
+    (function attachSwipe() {
+      let startX = 0;
+      const lb = document.getElementById('lightbox');
+      lb.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+      lb.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - startX;
+        if (Math.abs(dx) > 50) navigateLb(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    })();
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // START
+    // ─────────────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
