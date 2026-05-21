@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lumière — Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#0b0b0d',
+            surface:  '#131317',
+            panel:    '#1c1c22',
+            border:   '#2a2a33',
+            muted:    '#5a5a6e',
+            accent:   '#c9a96e',
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', 'serif'],
+            body:    ['"DM Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0b0b0d; font-family: 'DM Sans', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0b0d; }
+    ::-webkit-scrollbar-thumb { background: #2a2a33; border-radius: 3px; }
+
+    .upload-zone {
+      border: 2px dashed #2a2a33;
+      border-radius: 12px;
+      transition: border-color .3s, background .3s;
+      cursor: pointer;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #c9a96e;
+      background: rgba(201,169,110,.04);
+    }
+
+    .photo-item {
+      animation: fadeIn .4s ease forwards;
+      opacity: 0;
+    }
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    .progress-bar {
+      height: 3px;
+      background: #2a2a33;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #c9a96e;
+      border-radius: 2px;
+      transition: width .3s ease;
+      width: 0%;
+    }
+
+    .status-badge {
+      font-size: .65rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 50px;
+    }
+    .badge-waiting  { background: rgba(90,90,110,.2);  color: #5a5a6e; }
+    .badge-uploading{ background: rgba(201,169,110,.15); color: #c9a96e; }
+    .badge-success  { background: rgba(52,199,89,.15);  color: #34c759; }
+    .badge-error    { background: rgba(255,69,58,.15);  color: #ff453a; }
+
+    .input-field {
+      background: #1c1c22;
+      border: 1px solid #2a2a33;
+      border-radius: 8px;
+      color: #e2e2ea;
+      padding: 10px 14px;
+      width: 100%;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .875rem;
+      transition: border-color .2s;
+      outline: none;
+    }
+    .input-field:focus { border-color: #c9a96e; }
+    .input-field::placeholder { color: #5a5a6e; }
+
+    .btn-primary {
+      background: #c9a96e;
+      color: #0b0b0d;
+      font-weight: 600;
+      font-size: .85rem;
+      letter-spacing: .04em;
+      padding: 11px 24px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: background .2s, opacity .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary:hover   { background: #e8d5b0; }
+    .btn-primary:disabled{ opacity: .4; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      color: #5a5a6e;
+      font-size: .8rem;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #2a2a33;
+      cursor: pointer;
+      transition: color .2s, border-color .2s;
+    }
+    .btn-ghost:hover { color: #c9a96e; border-color: #c9a96e; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(10px);
+      background: #c9a96e; color: #0b0b0d; font-size: .8rem; font-weight: 600;
+      padding: 10px 22px; border-radius: 50px; pointer-events: none;
+      opacity: 0; transition: opacity .25s, transform .25s; z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Lock screen */
+    #lock-screen { position: fixed; inset: 0; background: #0b0b0d; z-index: 100;
+      display: flex; align-items: center; justify-content: center; }
+  </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+  <!-- ── LOCK / LOGIN SCREEN ─────────────────────────────────────────────── -->
+  <div id="lock-screen">
+    <div class="w-full max-w-sm px-6">
+      <!-- Logo -->
+      <div class="text-center mb-10">
+        <p class="font-display text-3xl text-yellow-400 italic">Lumière</p>
+        <p class="text-muted text-xs uppercase tracking-widest mt-1" style="color:#5a5a6e;">Admin Panel</p>
+      </div>
+
+      <!-- Warning -->
+      <div class="bg-red-900/20 border border-red-800/40 rounded-lg p-3 mb-6 text-xs text-red-300 leading-relaxed">
+        ⚠️ ഈ page നിങ്ങൾ മാത്രം ഉപയോഗിക്കുക. Token ആരോടും share ചെയ്യരുത്.
+      </div>
+
+      <div class="space-y-4">
+        <!-- GitHub Token -->
+        <div>
+          <label class="block text-xs text-muted mb-1.5 uppercase tracking-wider" style="color:#5a5a6e;">
+            GitHub Personal Access Token
+          </label>
+          <input id="login-token" type="password" class="input-field"
+            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"/>
+        </div>
+
+        <!-- Repo owner -->
+        <div>
+          <label class="block text-xs text-muted mb-1.5 uppercase tracking-wider" style="color:#5a5a6e;">
+            GitHub Username
+          </label>
+          <input id="login-owner" type="text" class="input-field"
+            placeholder="gh9aravind" value="gh9aravind"/>
+        </div>
+
+        <!-- Repo name -->
+        <div>
+          <label class="block text-xs text-muted mb-1.5 uppercase tracking-wider" style="color:#5a5a6e;">
+            Repository Name
+          </label>
+          <input id="login-repo" type="text" class="input-field"
+            placeholder="Lumi-re-Photo-Gallery" value="Lumi-re-Photo-Gallery"/>
+        </div>
+
+        <button class="btn-primary w-full justify-center mt-2" onclick="login()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Enter Admin Panel
+        </button>
+
+        <p class="text-xs text-center" style="color:#2a2a33;margin-top:8px;">
+          Token is stored only in your browser session
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADMIN PANEL ─────────────────────────────────────────────────────── -->
+  <div id="admin-panel" class="hidden max-w-3xl mx-auto px-4 py-10">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-10">
+      <div>
+        <p class="font-display text-2xl italic" style="color:#c9a96e;">Lumière Admin</p>
+        <p class="text-xs uppercase tracking-widest mt-0.5" style="color:#5a5a6e;">
+          Photo Upload Panel · <span id="repo-label"></span>
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <a href="index.html" target="_blank" class="btn-ghost text-xs">
+          View Gallery ↗
+        </a>
+        <button class="btn-ghost text-xs" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="grid grid-cols-3 gap-3 mb-8">
+      <div class="rounded-lg p-4" style="background:#1c1c22;border:1px solid #2a2a33;">
+        <p class="text-2xl font-display" style="color:#c9a96e;" id="stat-total">0</p>
+        <p class="text-xs mt-1" style="color:#5a5a6e;">Files selected</p>
+      </div>
+      <div class="rounded-lg p-4" style="background:#1c1c22;border:1px solid #2a2a33;">
+        <p class="text-2xl font-display" style="color:#34c759;" id="stat-done">0</p>
+        <p class="text-xs mt-1" style="color:#5a5a6e;">Uploaded</p>
+      </div>
+      <div class="rounded-lg p-4" style="background:#1c1c22;border:1px solid #2a2a33;">
+        <p class="text-2xl font-display" style="color:#ff453a;" id="stat-fail">0</p>
+        <p class="text-xs mt-1" style="color:#5a5a6e;">Failed</p>
+      </div>
+    </div>
+
+    <!-- Upload zone -->
+    <div id="upload-zone" class="upload-zone p-10 text-center mb-6"
+      onclick="document.getElementById('file-input').click()"
+      ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+      <div class="flex flex-col items-center gap-3 pointer-events-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" stroke="#5a5a6e" stroke-width="1.2" viewBox="0 0 24 24">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+        </svg>
+        <p style="color:#e2e2ea;font-size:.95rem;">ഇവിടെ ഫോട്ടോ drop ചെയ്യൂ</p>
+        <p style="color:#5a5a6e;font-size:.78rem;">അല്ലെങ്കിൽ click ചെയ്ത് select ചെയ്യൂ</p>
+        <p style="color:#2a2a33;font-size:.72rem;">JPG, PNG, WEBP · Max 25MB per file</p>
+      </div>
+      <input id="file-input" type="file" accept="image/*" multiple class="hidden" onchange="handleFiles(this.files)"/>
+    </div>
+
+    <!-- Category & settings -->
+    <div class="grid grid-cols-2 gap-3 mb-6">
+      <div>
+        <label class="block text-xs mb-1.5 uppercase tracking-wider" style="color:#5a5a6e;">Category</label>
+        <select id="upload-category" class="input-field">
+          <option value="portrait">Portrait</option>
+          <option value="event">Event</option>
+          <option value="nature">Nature</option>
+          <option value="lifestyle">Lifestyle</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs mb-1.5 uppercase tracking-wider" style="color:#5a5a6e;">Tags (comma separated)</label>
+        <input id="upload-tags" type="text" class="input-field" placeholder="family, outdoor"/>
+      </div>
+    </div>
+
+    <!-- File list -->
+    <div id="file-list" class="space-y-2 mb-6 hidden"></div>
+
+    <!-- Action buttons -->
+    <div class="flex gap-3" id="action-btns" style="display:none!important;">
+      <button id="upload-btn" class="btn-primary flex-1 justify-center" onclick="uploadAll()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+        Upload to Gallery
+      </button>
+      <button class="btn-ghost" onclick="clearFiles()">Clear</button>
+    </div>
+
+    <!-- Overall progress -->
+    <div id="overall-progress" class="mt-6 hidden">
+      <div class="flex justify-between text-xs mb-2" style="color:#5a5a6e;">
+        <span>Uploading…</span>
+        <span id="progress-text">0 / 0</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="mt-10 rounded-xl p-5" style="background:#1c1c22;border:1px solid #2a2a33;">
+      <p class="text-sm font-medium mb-3" style="color:#c9a96e;">📋 Upload കഴിഞ്ഞ് ചെയ്യേണ്ടത്</p>
+      <ol class="space-y-2 text-xs leading-relaxed" style="color:#5a5a6e;">
+        <li>1. Upload success ആയ ഫോട്ടോകളുടെ filename copy ചെയ്യുക</li>
+        <li>2. <code style="color:#c9a96e;background:#0b0b0d;padding:1px 5px;border-radius:3px;">index.html</code> → PHOTOS array-ൽ new entry add ചെയ്യുക</li>
+        <li>3. Gallery refresh ചെയ്യൂ — ഫോട്ടോ കാണും ✅</li>
+      </ol>
+
+      <!-- Auto-generated code snippet -->
+      <div id="code-snippet" class="hidden mt-4">
+        <p class="text-xs mb-2" style="color:#c9a96e;">✨ ഇത് PHOTOS array-ൽ paste ചെയ്യൂ:</p>
+        <pre id="snippet-code"
+          class="text-xs p-3 rounded-lg overflow-x-auto"
+          style="background:#0b0b0d;color:#e2e2ea;border:1px solid #2a2a33;white-space:pre-wrap;word-break:break-all;"></pre>
+        <button onclick="copySnippet()" class="btn-ghost text-xs mt-2">
+          📋 Copy Code
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script>
+    // ── STATE ──────────────────────────────────────────────────────────────
+    let TOKEN = '';
+    let OWNER = '';
+    let REPO  = '';
+    let selectedFiles = [];
+    let uploadedFiles = [];
+
+    // ── LOGIN ──────────────────────────────────────────────────────────────
+    function login() {
+      const token = document.getElementById('login-token').value.trim();
+      const owner = document.getElementById('login-owner').value.trim();
+      const repo  = document.getElementById('login-repo').value.trim();
+
+      if (!token || !owner || !repo) {
+        showToast('എല്ലാ fields-ഉം fill ചെയ്യൂ!');
+        return;
+      }
+      if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+        showToast('Valid GitHub token enter ചെയ്യൂ (ghp_ or github_pat_)');
+        return;
+      }
+
+      TOKEN = token;
+      OWNER = owner;
+      REPO  = repo;
+
+      document.getElementById('lock-screen').style.display = 'none';
+      document.getElementById('admin-panel').classList.remove('hidden');
+      document.getElementById('repo-label').textContent = `${owner}/${repo}`;
+    }
+
+    function logout() {
+      TOKEN = ''; OWNER = ''; REPO = '';
+      selectedFiles = []; uploadedFiles = [];
+      document.getElementById('lock-screen').style.display = 'flex';
+      document.getElementById('admin-panel').classList.add('hidden');
+      document.getElementById('login-token').value = '';
+    }
+
+    // ── FILE HANDLING ──────────────────────────────────────────────────────
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('upload-zone').classList.add('drag-over');
+    }
+    function handleDragLeave() {
+      document.getElementById('upload-zone').classList.remove('drag-over');
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('upload-zone').classList.remove('drag-over');
+      handleFiles(e.dataTransfer.files);
+    }
+
+    function handleFiles(files) {
+      const newFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+      if (newFiles.length === 0) { showToast('Image files മാത്രം select ചെയ്യൂ!'); return; }
+
+      // Check 25MB limit
+      const tooBig = newFiles.filter(f => f.size > 25 * 1024 * 1024);
+      if (tooBig.length > 0) {
+        showToast(`${tooBig.map(f=>f.name).join(', ')} — 25MB-ൽ കൂടുതൽ!`);
+        return;
+      }
+
+      selectedFiles = [...selectedFiles, ...newFiles];
+      renderFileList();
+      updateStats();
+
+      document.getElementById('action-btns').style.display = 'flex';
+      document.getElementById('file-list').classList.remove('hidden');
+    }
+
+    function renderFileList() {
+      const list = document.getElementById('file-list');
+      list.innerHTML = '';
+      selectedFiles.forEach((file, idx) => {
+        const div = document.createElement('div');
+        div.id = `file-item-${idx}`;
+        div.className = 'photo-item flex items-center gap-3 p-3 rounded-lg';
+        div.style.cssText = 'background:#1c1c22;border:1px solid #2a2a33;animation-delay:'+idx*.05+'s';
+
+        // Thumbnail preview
+        const img = document.createElement('img');
+        img.style.cssText = 'width:44px;height:44px;object-fit:cover;border-radius:5px;flex-shrink:0;';
+        const reader = new FileReader();
+        reader.onload = e => img.src = e.target.result;
+        reader.readAsDataURL(file);
+
+        div.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <p class="text-sm truncate" style="color:#e2e2ea;">${file.name}</p>
+            <p class="text-xs mt-0.5" style="color:#5a5a6e;">${(file.size/1024/1024).toFixed(2)} MB</p>
+            <div class="progress-bar mt-1.5"><div class="progress-fill" id="bar-${idx}"></div></div>
+          </div>
+          <span class="status-badge badge-waiting" id="status-${idx}">Waiting</span>
+          <button onclick="removeFile(${idx})" class="text-xs flex-shrink-0"
+            style="color:#5a5a6e;background:none;border:none;cursor:pointer;padding:4px;">✕</button>
+        `;
+        div.insertBefore(img, div.firstChild);
+        list.appendChild(div);
+      });
+    }
+
+    function removeFile(idx) {
+      selectedFiles.splice(idx, 1);
+      if (selectedFiles.length === 0) clearFiles();
+      else { renderFileList(); updateStats(); }
+    }
+
+    function clearFiles() {
+      selectedFiles = [];
+      document.getElementById('file-list').innerHTML = '';
+      document.getElementById('file-list').classList.add('hidden');
+      document.getElementById('action-btns').style.display = 'none';
+      document.getElementById('file-input').value = '';
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('stat-total').textContent = selectedFiles.length;
+    }
+
+    // ── UPLOAD ─────────────────────────────────────────────────────────────
+    async function uploadAll() {
+      if (selectedFiles.length === 0) return;
+
+      const btn = document.getElementById('upload-btn');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Uploading…`;
+
+      const category = document.getElementById('upload-category').value;
+      const tagsRaw  = document.getElementById('upload-tags').value;
+      const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [category];
+
+      document.getElementById('overall-progress').classList.remove('hidden');
+      uploadedFiles = [];
+      let done = 0, failed = 0;
+
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        setStatus(i, 'uploading', 'Uploading…');
+        setBar(i, 30);
+
+        try {
+          const base64 = await toBase64(file);
+          setBar(i, 60);
+
+          // Check if file already exists (get SHA if so)
+          let sha = undefined;
+          try {
+            const check = await fetch(
+              `https://api.github.com/repos/${OWNER}/${REPO}/contents/${file.name}`,
+              { headers: { Authorization: `Bearer ${TOKEN}`, Accept: 'application/vnd.github+json' } }
+            );
+            if (check.ok) {
+              const existing = await check.json();
+              sha = existing.sha; // needed to update existing file
+            }
+          } catch(_) {}
+
+          const body = {
+            message: `Upload photo: ${file.name}`,
+            content: base64,
+            ...(sha ? { sha } : {})
+          };
+
+          const res = await fetch(
+            `https://api.github.com/repos/${OWNER}/${REPO}/contents/${file.name}`,
+            {
+              method: 'PUT',
+              headers: {
+                Authorization: `Bearer ${TOKEN}`,
+                Accept: 'application/vnd.github+json',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(body)
+            }
+          );
+
+          if (res.ok) {
+            setBar(i, 100);
+            setStatus(i, 'success', 'Uploaded ✓');
+            done++;
+            uploadedFiles.push({ name: file.name, category, tags });
+          } else {
+            const err = await res.json();
+            throw new Error(err.message || 'Upload failed');
+          }
+        } catch (err) {
+          setBar(i, 100);
+          setStatus(i, 'error', 'Failed ✗');
+          failed++;
+          console.error(file.name, err);
+        }
+
+        // Update progress
+        document.getElementById('progress-text').textContent = `${done + failed} / ${selectedFiles.length}`;
+        document.getElementById('progress-fill').style.width = `${((done + failed) / selectedFiles.length) * 100}%`;
+        document.getElementById('stat-done').textContent = done;
+        document.getElementById('stat-fail').textContent = failed;
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg> Upload to Gallery`;
+
+      showToast(`${done} photo${done !== 1 ? 's' : ''} uploaded! ${failed > 0 ? `(${failed} failed)` : ''}`);
+
+      if (uploadedFiles.length > 0) generateSnippet();
+    }
+
+    // ── CODE SNIPPET GENERATOR ─────────────────────────────────────────────
+    function generateSnippet() {
+      const snippet = document.getElementById('code-snippet');
+      const code    = document.getElementById('snippet-code');
+      snippet.classList.remove('hidden');
+
+      // Get current highest id from existing PHOTOS if possible
+      // We'll just start from a safe offset
+      let entries = uploadedFiles.map((f, i) => {
+        const ext = f.name.split('.').pop();
+        const titleRaw = f.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+        const title = titleRaw.charAt(0).toUpperCase() + titleRaw.slice(1);
+        return `  {
+    id: ${Date.now() + i}, // ← unique id ആക്കൂ
+    title: '${title}',
+    category: '${f.category}',
+    tags: [${f.tags.map(t => `'${t}'`).join(', ')}],
+    src:      '${f.name}',
+    thumb:    '${f.name}',
+    download: '${f.name}',
+  },`;
+      }).join('\n');
+
+      code.textContent = entries;
+    }
+
+    function copySnippet() {
+      navigator.clipboard.writeText(document.getElementById('snippet-code').textContent)
+        .then(() => showToast('Code copied! ✓'))
+        .catch(() => showToast('Manual copy ചെയ്യൂ'));
+    }
+
+    // ── HELPERS ────────────────────────────────────────────────────────────
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function setStatus(idx, type, text) {
+      const el = document.getElementById(`status-${idx}`);
+      if (!el) return;
+      el.className = `status-badge badge-${type}`;
+      el.textContent = text;
+    }
+
+    function setBar(idx, pct) {
+      const el = document.getElementById(`bar-${idx}`);
+      if (el) el.style.width = pct + '%';
+    }
+
+    // Toast
+    let toastTimer;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    // Enter key to login
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && document.getElementById('lock-screen').style.display !== 'none') login();
+    });
+  </script>
+</body>
+</html>
